@@ -1,0 +1,79 @@
+name: Rasp 3/4 Matrix
+on:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'with TMATE'
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        IMG-NAME: [BigLinux]
+        DEVICE: [rpi4,generic]
+        # EDITION: [gnome,kde-plasma,mate,minimal,sway,xfce]
+        # EDITION: [kde-plasma,minimal,iot]
+        EDITION: [kde-plasma,minimal,iot]
+        BRANCH: [stable]
+        BIGBRANCH: [stable]
+    steps:
+      - id: time
+        name: Release
+        uses: boredland/get-time-action@2.0.0
+        with:
+          format: 'YYYY-MM-DD_HH-mm'
+          
+      - id: name
+        name: Name
+        shell: bash
+        run: |
+          echo "name=$(echo ${{ matrix.img-name }} | sed -e 's/\(.*\)/\L\1/')" >> $GITHUB_OUTPUT
+          echo ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
+          echo "Tmate = ${{ inputs.debug_enabled }}"
+          
+      - id: image-build
+        name: Image Build
+        uses: BigLinux-Package-Build/build-iso-arm@main
+        with:
+          img-name: ${{ matrix.img-name }}
+          name: ${{ steps.name.outputs.name }}
+          device: ${{ matrix.device }}
+          edition: ${{ matrix.edition }}
+          branch: ${{ matrix.branch }}
+          bigbranch: ${{ matrix.bigbranch }}
+          version: ${{ steps.time.outputs.time }}
+          type: image
+          tmate: ${{ inputs.debug_enabled }}
+          # if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+          # overlay-repo: https://repo.biglinux.com.br/stable/$arch/biglinux-stable.db
+          #gpg-key: ${{ secrets.CI_GPG_SECRET }}
+          #gpg-passphrase: ${{ secrets.CI_GPG_PASSPHRASE }}
+          
+      - name: Release Upload
+        uses: softprops/action-gh-release@v0.1.15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.time.outputs.time }}
+          name: BigLinux ARM ${{ steps.time.outputs.time }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ env.FILE_PATH }}
+            ${{ env.FILE_SHA1 }}
+            ${{ env.FILE_SHA256 }}
+            ${{ env.FILE_TORRENT }}
+            ${{ env.FILE_PKG }}
+            #${{ env.FILE_SIG }}
+            
+      # - name: Tmate if failure
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
