@@ -99,12 +99,12 @@ jobs:
           sudo rm arch-install-scripts.tar.gz 
           sudo rm -r arch-install-scripts-${VERSION}         
           
-      - name: install-manjaro-arm-tools
+      - name: install-biglinux-arm-tools
         shell: bash
         run: |
-          sudo git clone https://gitlab.manjaro.org/manjaro-arm/applications/manjaro-arm-tools.git
+          sudo git clone https://github.com/jdorigao/biglinux-arm-tools.git
           install_m_a_tools() {
-              pkgname=manjaro-arm-tools
+              pkgname=biglinux-arm-tools
               sudo install -dm777 /usr/share/$pkgname/lib
               sudo install -dm777 /usr/share/$pkgname/profiles
               sudo install -d /etc/$pkgname/
@@ -112,41 +112,15 @@ jobs:
               sudo install -dm777 /var/cache/$pkgname/{pkg/pkg-cache,img}
               sudo install -Dm755 $pkgname/lib/* /usr/share/$pkgname/lib/
               sudo install -Dm755 $pkgname/bin/* /usr/bin/
-              sudo install -Dm755 $pkgname/lib/manjaro-arm-tools.conf /etc/manjaro-arm-tools/
+              sudo install -Dm755 $pkgname/lib/biglinux-arm-tools.conf /etc/biglinux-arm-tools/
           }
           install_m_a_tools
           
-          sudo sed -i -e 's|1>/dev/null||g' /usr/share/manjaro-arm-tools/lib/functions.sh   
-          sudo sed -i -e 's|1> /dev/null 2>&1||g' /usr/share/manjaro-arm-tools/lib/functions.sh
-          sudo sed -i -e 's|2>/dev/null||g' /usr/share/manjaro-arm-tools/lib/functions.sh
+          sudo sed -i -e 's|1>/dev/null||g' /usr/share/biglinux-arm-tools/lib/functions.sh   
+          sudo sed -i -e 's|1> /dev/null 2>&1||g' /usr/share/biglinux-arm-tools/lib/functions.sh
+          sudo sed -i -e 's|2>/dev/null||g' /usr/share/biglinux-arm-tools/lib/functions.sh
           
-          sudo rm -r manjaro-arm-tools
-          
-      - name: BigLinux-changes
-        shell: bash
-        run: |
-          # BigLinux Information
-          sudo sed -i 's|^Manjaro Linux|BigLinux, based in Manjaro Linux|g' $BUILDDIR/$ARCH/etc/issue
-          sudo sed -i 's|^ *\bNAME\b *=.*|NAME="BigLinux based in Manjaro Linux"|;s|^ *\ID\b *=.*|ID="biglinux-arm"|;s|^ *\ID_LIKE\b *=.*|ID_LIKE="biglinux arch"|;s|^ *\bPRETTY_NAME\b *=.*|PRETTY_NAME="BigLinux based in Manjaro Linux"|;s|^ *\ANSI_COLOR\b *=.*|ANSI_COLOR="32;1;24;144;200"|;s|^ *\bHOME_URL\b *=.*|HOME_URL="https://www.biglinux.com.br"|;s|^ *\bSUPPORT_URL\b *=.*|SUPPORT_URL="https://forum.biglinux.com.br"|;s|^ *\LOGO\b *=.*|LOGO="biglinux-blue"|' $BUILDDIR/$ARCH/usr/lib/os-release
-          sudo sed -i 's|^ *\bDISTRIB_ID\b *=.*|DISTRIB_ID="BigLinux based in Manjaro Linux"|g;s|^ *\bDISTRIB_DESCRIPTION\b *=.*|DISTRIB_DESCRIPTION="BigLinux"|g' $BUILDDIR/$ARCH/usr/lib/os-release
-
-          # Change name on login
-          echo 'Welcome to BigLinux ARM
-          ~~Website:  https://www.biglinux.com.br
-          ~~Forum:    https://forum.biglinux.com.br
-          ~~Telegram: https://t.me/BigLinuxCommunity' | sudo tee $BUILDDIR/$ARCH/etc/motd
-
-          echo '
-          [biglinux-testing]
-          SigLevel = Optional TrustAll
-          Server = https://repo.biglinux.com.br/testing/aarch64
-        
-          [biglinux-stable]
-          SigLevel = Optional TrustAll
-          Server = https://repo.biglinux.com.br/stable/aarch64' | sudo tee -a /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-
-          # Name imagen
-          sudo sed -i 's/Manjaro-ARM-$ARCH/BigLinux-ARM-$ARCH/g' /usr/bin/buildrootfs
+          sudo rm -r biglinux-arm-tools
           
       - name: Tmate
         uses: mxschmitt/action-tmate@v3
@@ -157,9 +131,9 @@ jobs:
         run: |
           sudo buildrootfs
                             
-          ls -lasih /var/cache/manjaro-arm-tools/img
+          ls -lasih /var/cache/biglinux-arm-tools/img
           
-          FILE_PATH=$(find /var/cache/manjaro-arm-tools/img -type f -name "*.tar.gz" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
+          FILE_PATH=$(find /var/cache/biglinux-arm-tools/img -type f -name "*.tar.gz" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
           cp -v $FILE_PATH .
 
           echo "FILE_PATH=$(basename $FILE_PATH)" >> $GITHUB_ENV
