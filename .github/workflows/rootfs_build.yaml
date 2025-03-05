@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-fast install -y \
+          sudo apt install \
             gdisk \
             zip \
             systemd-container \
@@ -49,7 +49,7 @@ jobs:
             qemu-user-static
           sudo pip3 install meson
           sudo pip3 install ninja
-          
+      
       - name: install-pacman
         shell: bash
         env:
@@ -60,7 +60,6 @@ jobs:
             sudo wget https://sources.archlinux.org/other/pacman/pacman-${PACMAN_VERSION}.tar.xz
             sudo tar -xvf pacman-${PACMAN_VERSION}.tar.xz
             pushd pacman-${PACMAN_VERSION}
-              sudo patch -p1 -i ../pacman-sync-first-option.patch
               sudo meson --prefix=/usr \
                         --buildtype=plain \
                         -Ddoc=disabled \
@@ -77,14 +76,12 @@ jobs:
             sudo touch /etc/pacman.d/mirrorlist
           popd
           
-          sudo rm -r pacman
-          
       - name: setup-qemu-binfmt
         shell: bash
         run: |
           sudo wget https://gitlab.manjaro.org/packages/community/manjaro-arm-qemu-static/-/raw/master/qemu-static.conf -O /usr/lib/binfmt.d/qemu-static.conf
           sudo service systemd-binfmt restart 
-          
+
       - name: install-arch-install-scripts
         shell: bash
         env:
@@ -95,9 +92,6 @@ jobs:
           sudo make -C arch-install-scripts-${VERSION}
           sudo make -C arch-install-scripts-${VERSION} check
           sudo make -C arch-install-scripts-${VERSION} PREFIX=/usr install
-          
-          sudo rm -r arch-install-scripts.tar.gz
-          sudo rm -r arch-install-scripts-${VERSION}
           
       - name: install-manjaro-arm-tools
         shell: bash
@@ -120,34 +114,27 @@ jobs:
           sudo sed -i -e 's|1> /dev/null 2>&1||g' /usr/share/manjaro-arm-tools/lib/functions.sh
           sudo sed -i -e 's|2>/dev/null||g' /usr/share/manjaro-arm-tools/lib/functions.sh
           
-          sudo rm -r manjaro-arm-tools
-          
       - name: add-repo
         shell: bash
         run: |    
           #add biglinux repo
-          # sudo sed -i '/\[core\]/{h;s/.*/\[biglinux-update-stable\]/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-          # sudo sed -i '/\[core\]/{h;s/.*/SigLevel = PackageRequired/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-          # sudo sed -i '/\[core\]/{h;s/.*/Server = https:\/\/repo.biglinux.com.br\/update-stable\/aarch64/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-          # sudo sed -i '/\[core\]/{h;s/.*//;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-        
           echo '
           [biglinux-testing]
           # SigLevel = PackageRequired
           SigLevel = Optional TrustAll
-          Server = https://repo.biglinux.com.br/testing/aarch64' | sudo tee -a /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
+          Server = https://repo.biglinux.com.br/testing/aarch64
         
-          echo '
           [biglinux-stable]
           # SigLevel = PackageRequired
           SigLevel = Optional TrustAll
           Server = https://repo.biglinux.com.br/stable/aarch64' | sudo tee -a /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
           
-      - name: 
-        shell: bash
-        run: |
-          git clone --depth 1 https://github.com/biglinux/biglinux-arm-profiles.git
-                
+          #add biglinux-arm-keyring
+          sudo sed -i '/os-release/{p;s/.*/$CHROOTDIR pacman-key --init/;}' /usr/bin/buildrootfs
+          newPackages="biglinux-arm-keyring"
+          sudo sed -i "/pacstrap/s/pacman/pacman $newPackages/2" /usr/bin/buildrootfs
+          sudo sed -i "/--populate/s/manjaro-arm/manjaro-arm biglinux biglinux-arm/" /usr/share/manjaro-arm-tools/lib/functions.sh
+
       - name: Tmate
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
@@ -155,85 +142,15 @@ jobs:
       - name: build
         shell: bash
         run: |
-          ### add outros pacotes ###
-          #editar arquivo /usr/bin/buildrootfs
-          #edicionar mais pacotes na linha:
-          #$LIBDIR/pacstrap -G -M -C $LIBDIR/pacman.conf.$ARCH $BUILDDIR/$ARCH pacman
-          
-          #add biglinux-arm-keyring
-          sudo sed -i '/os-release/{p;s/.*/$CHROOTDIR pacman-key --init/;}' /usr/bin/buildrootfs
-          newPackages="biglinux-arm-keyring"
-          sudo sed -i "/pacstrap/s/pacman/pacman $newPackages/2" /usr/bin/buildrootfs
-          
-          #remover compress e gerar rootfs
-          sudo sed -i ':a;$!{N;ba;};s/\(.*\)compress_rootfs/\1/' /usr/bin/buildrootfs
           sudo buildrootfs
           
-          #declarar variaveis
-          ARCH='aarch64'
-          BUILDDIR='/var/lib/manjaro-arm-tools/pkg'
-          IMGDIR='/var/cache/manjaro-arm-tools/img'
+          ls -lasih /var/cache/manjaro-arm-tools/img
           
-          ### BigLinux Changes ###
-          #trocar nome no login
-          echo 'Welcome to BigLinux ARM
-          ~~Website:  https://www.biglinux.com.br
-          ~~Forum:    https://forum.biglinux.com.br
-          ~~Telegram: https://t.me/BigLinuxCommunity' | sudo tee $BUILDDIR/$ARCH/etc/motd
-          
-          cat $BUILDDIR/$ARCH/etc/motd
-          
-          #add biglinux repo
-          # sudo sed -i '/\[core\]/{h;s/.*/\[biglinux-update-stable\]/;p;x;}' $BUILDDIR/$ARCH/etc/pacman.conf
-          # sudo sed -i '/\[core\]/{h;s/.*/SigLevel = PackageRequired/;p;x;}' $BUILDDIR/$ARCH/etc/pacman.conf
-          # sudo sed -i '/\[core\]/{h;s/.*/Server = https:\/\/repo.biglinux.com.br\/update-stable\/$arch/;p;x;}' $BUILDDIR/$ARCH/etc/pacman.conf
-          # sudo sed -i '/\[core\]/{h;s/.*//;p;x;}' $BUILDDIR/$ARCH/etc/pacman.conf
-          echo '
-          [biglinux-testing]
-          SigLevel = PackageRequired
-          SigLevel = Optional TrustAll
-          Server = https://repo.biglinux.com.br/testing/$arch
-          
-          [biglinux-stable]
-          SigLevel = PackageRequired
-          SigLevel = Optional TrustAll
-          Server = https://repo.biglinux.com.br/stable/$arch' | sudo tee -a $BUILDDIR/$ARCH/etc/pacman.conf
-          
-          #Polulate Keys and install some programs
-          pushd biglinux-arm-profiles
-          sudo rm -f "$BUILDDIR/$ARCH/etc/resolv.conf"
-          echo "nameserver 1.1.1.1" | sudo tee "$BUILDDIR/$ARCH/etc/resolv.conf"
-          sudo mount --bind "$BUILDDIR/$ARCH/" "$BUILDDIR/$ARCH/"
-          sudo mount --bind /dev "$BUILDDIR/$ARCH/dev"
-          sudo mount --bind /proc "$BUILDDIR/$ARCH/proc"
-          sudo mount --bind /sys "$BUILDDIR/$ARCH/sys"
-          sudo chroot "$BUILDDIR/$ARCH" pacman-key --init
-          sudo chroot "$BUILDDIR/$ARCH" pacman-key --populate manjaro
-          sudo chroot "$BUILDDIR/$ARCH" pacman-key --populate archlinuxarm
-          sudo chroot "$BUILDDIR/$ARCH" pacman-key --populate biglinux
-          sudo chroot "$BUILDDIR/$ARCH" pacman -Sy --noconfirm util-linux $(sed 's/#.*//;s/^ \+//;/^$/d;s/>[^ ]* //g' rootfs)
-          sudo rm -rf "$BUILDDIR/$ARCH/var/cache/pacman/pkg/"
-          sudo umount -l "$BUILDDIR/$ARCH/sys"
-          sudo umount -l "$BUILDDIR/$ARCH/proc"
-          sudo umount -l "$BUILDDIR/$ARCH/dev"
-          popd
-          pwd=$PWD
-          
-          #Compressing rootfs...
-          pushd $BUILDDIR/$ARCH
-          sudo tar -czf $IMGDIR/BigLinux-ARM-$ARCH-latest.tar.gz .
-          sudo chmod 777 $IMGDIR/BigLinux-ARM-$ARCH-latest.tar.gz
-          popd
-          
-          ls -lasih $IMGDIR
-          
-          FILE_PATH=$(find $IMGDIR -type f -name "*.tar.gz" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
-          sudo cp -v ${IMGDIR}/BigLinux-ARM-$ARCH-latest.tar.gz .
-          
-          ls -lh
-          
+          FILE_PATH=$(find /var/cache/manjaro-arm-tools/img -type f -name "*.tar.gz" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
+          cp -v $FILE_PATH .
+
           echo "FILE_PATH=$(basename $FILE_PATH)" >> $GITHUB_ENV
-          
+           
       - name: Release assets
         uses: softprops/action-gh-release@v0.1.15
         env:
@@ -245,5 +162,3 @@ jobs:
           prerelease: false
           files: |
             ${{ env.FILE_PATH }}
-            
-          

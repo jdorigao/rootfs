@@ -1,5 +1,5 @@
-name: 'Manjaro Image Action'
-description: 'Installs prerequisites for building Manjaro ARM on ubuntu'
+name: 'BigLinux Image Action'
+description: 'Installs prerequisites for building BigLinux ARM on ubuntu'
 inputs:
   arm-profiles-repo:
     description: 'arm-profiles to clone'
@@ -35,7 +35,7 @@ inputs:
     required: false
     default: 'biglinux'
   bigbranch:
-    description: 'stable, beta, development'
+    description: 'stable, testing, development'
     required: true
   tmate:
     description: 'run tmate'
@@ -95,38 +95,6 @@ runs:
         wget http://ports.ubuntu.com/pool/main/g/grub2-unsigned/grub-efi-arm64-bin_2.06-2ubuntu14.1_arm64.deb
         sudo dpkg -x grub-efi-arm64-bin_2.06-2ubuntu14.1_arm64.deb /
         
-        sudo rm -r *.deb
-        
-    - name: clean-system
-      shell: bash
-      run: |
-        echo "### Clean System ###"
-        sudo rm -rf \
-        /imagegeneration \
-        /opt/az \
-        /opt/ghc \
-        /opt/pipx \
-        /opt/google \
-        /opt/microsoft \
-        /opt/hostedtoolcache \
-        /usr/lib/llvm* \
-        /var/lib/mysql \
-        /var/lib/snapd \
-        /var/cache/apt \
-        /var/lib/docker \
-        /usr/lib/google* \
-        /usr/lib/firefox \
-        /usr/local/julia* \
-        /usr/local/.ghcup \
-        /usr/local/aws-cli \
-        /usr/local/lib/android \
-        /usr/local/aws-sam-cli \
-        /usr/local/share/chromium \
-        /usr/local/lib/node_modules \
-        /usr/local/share/powershell \
-        /usr/share/swift \
-        /usr/share/dotnet
-          
     - id: install-pacman
       shell: bash
       env:
@@ -154,8 +122,6 @@ runs:
           sudo touch /etc/pacman.d/mirrorlist
         popd
         
-        sudo rm -r pacman
-        
     - name: setup-qemu-binfmt
       shell: bash
       run: |
@@ -165,17 +131,14 @@ runs:
     - name: install-arch-install-scripts
       shell: bash
       env:
-        VERSION: 24
+        VERSION: 28
       run: |
         sudo wget https://github.com/archlinux/arch-install-scripts/archive/refs/tags/v${VERSION}.tar.gz -O arch-install-scripts.tar.gz
         sudo tar -xvf arch-install-scripts.tar.gz
         sudo make -C arch-install-scripts-${VERSION}
         sudo make -C arch-install-scripts-${VERSION} check
         sudo make -C arch-install-scripts-${VERSION} PREFIX=/usr install
-        
-        sudo rm arch-install-scripts.tar.gz
-        sudo rm -r arch-install-scripts-${VERSION}
-        
+
     - name: install-manjaro-arm-tools
       shell: bash
       run: |
@@ -197,22 +160,10 @@ runs:
         sudo sed -i -e 's|1> /dev/null 2>&1||g' /usr/share/manjaro-arm-tools/lib/functions.sh
         sudo sed -i -e 's|2>/dev/null||g' /usr/share/manjaro-arm-tools/lib/functions.sh
         
-        sudo rm -r manjaro-arm-tools
-        
     - name: BigLinux Changes
       shell: bash
       run: |
         #BigLinux Changes
-        
-        # echo "#Change User"
-        # sudo sed -i "s/#USER=.*/USER='${{ inputs.name }}'/" /etc/manjaro-arm-tools/manjaro-arm-tools.conf
-        # sudo sed -i "s/#USER=.*/USER='${{ inputs.name }}'/" /usr/share/manjaro-arm-tools/lib/manjaro-arm-tools.conf
-        # sudo sed -i "s/USER=.*/USER='${{ inputs.name }}'/" /usr/share/manjaro-arm-tools/lib/functions.sh
-        
-        # echo "#Change Password"
-        # sudo sed -i "s/#PASSWORD=.*/PASSWORD='${{ inputs.name }}'/" /etc/manjaro-arm-tools/manjaro-arm-tools.conf
-        # sudo sed -i "s/#PASSWORD=.*/PASSWORD='${{ inputs.name }}'/" /usr/share/manjaro-arm-tools/lib/manjaro-arm-tools.conf
-        # sudo sed -i "s/PASSWORD=.*/PASSWORD='${{ inputs.name }}'/" /usr/share/manjaro-arm-tools/lib/functions.sh
         
         echo "#Change HostName"
         sudo sed -i "s/#HOSTNAME=.*/HOSTNAME='${{ inputs.name }}-arm'/" /etc/manjaro-arm-tools/manjaro-arm-tools.conf
@@ -222,24 +173,16 @@ runs:
         echo "#Change Image Name"
         sudo sed -i "/IMGNAME=/s/Manjaro/${{ inputs.img-name }}/" /usr/share/manjaro-arm-tools/lib/functions.sh
         sudo sed -i "/IMGNAME=/s/Manjaro/${{ inputs.img-name }}/" /usr/bin/buildarmimg
-        
-        # echo "#Disable Wayland for KDE Plasma"
-        # sudo sed -i 's/desq|kde-plasma|wayfire|sway/desq|wayfire|sway/' /usr/share/manjaro-arm-tools/lib/functions.sh
-        
+                
         echo "#rootfs"
-        #gh release -R BigLinux-Package-Build/build-iso-arm download $(gh release list -R BigLinux-Package-Build/build-iso-arm | grep rootfs | awk '{print $2}' | head -n1)
-        
         echo ${{ github.token }} | gh auth login --with-token
         sed -i 's|wget -q --show-progress --progress=bar:force:noscroll \\||' /usr/share/manjaro-arm-tools/lib/functions.sh
         sed -i 's|https://github.com/manjaro-arm/rootfs.*||' /usr/share/manjaro-arm-tools/lib/functions.sh
         sed -i 's/-O "$ROOTFS_IMG\/Manjaro-ARM-$ARCH-latest.tar.gz".*/gh release -R BigLinux-Package-Build\/build-iso-arm download $(gh release list -R BigLinux-Package-Build\/build-iso-arm | grep rootfs | awk '"'{print $2}'"' | head -n1) -D $ROOTFS_IMG\//' /usr/share/manjaro-arm-tools/lib/functions.sh
         
-        # cat /usr/share/manjaro-arm-tools/lib/functions.sh | grep BigLinux-ARM
-        
         gh release -R BigLinux-Package-Build/build-iso-arm download $(gh release list -R BigLinux-Package-Build/build-iso-arm | grep rootfs | awk '{print $2}' | head -n1)
         cp BigLinux-ARM-aarch64-latest.tar.gz /var/lib/manjaro-arm-tools/img
-        
-        
+                
         sed -i '/bsdtar -xpf/s/Manjaro/BigLinux/' /usr/share/manjaro-arm-tools/lib/functions.sh
         sed -i 's/Manjaro-ARM-$ARCH-latest.tar.gz/BigLinux-ARM-aarch64-latest.tar.gz/' /usr/share/manjaro-arm-tools/lib/functions.sh
         
@@ -247,11 +190,6 @@ runs:
         sudo sed -i '/Architecture/{p;s/.*/ParallelDownloads = 8/;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
         
         echo "#add biglinux repo"
-        # sudo sed -i '/\[core\]/{h;s/.*/\[biglinux-update-stable\]/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-        # sudo sed -i '/\[core\]/{h;s/.*/SigLevel = PackageRequired/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-        # sudo sed -i '/\[core\]/{h;s/.*/Server = https:\/\/repo.biglinux.com.br\/update-stable\/aarch64/;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-        # sudo sed -i '/\[core\]/{h;s/.*//;p;x;}' /usr/share/manjaro-arm-tools/lib/pacman.conf.aarch64
-        
         if [ "${{ inputs.bigbranch }}" = "development" ];then
         echo '
         # /etc/pacman.conf
@@ -319,25 +257,7 @@ runs:
         #change to fast compress
         sed '/--threads=0 /s/--threads=0/--threads=0 --fast/' /usr/share/manjaro-arm-tools/lib/functions.sh
         fi
-        
-        # sudo sed -i 's/BOOT_MNJRO/BOOT_BIGARM/g' /usr/share/manjaro-arm-tools/lib/functions.sh
-        # sudo sed -i 's/ROOT_MNJRO/ROOT_BIGARM/g' /usr/share/manjaro-arm-tools/lib/functions.sh
-        #
-        # sudo sed -i "/--populate/s/manjaro-arm/manjaro-arm ${{ inputs.name }}/" /usr/share/manjaro-arm-tools/lib/functions.sh
-        # sudo sed -i 's/Optional TrustAll/PackageRequired/' /usr/share/manjaro-arm-tools/lib/functions.sh
-        # sudo sed -i "/menuentry/s/Manjaro/${{ inputs.img-name }}/" /usr/share/manjaro-arm-tools/lib/functions.sh
-        #
-        # sudo sed -i '/zstd/s/-10/-3/' /usr/share/manjaro-arm-tools/lib/functions.sh
-        #
-        # ALERT
-        # Verficar linha 323 /usr/share/manjaro-arm-tools/lib/functions.sh
-        # OEM linha 509 /usr/share/manjaro-arm-tools/lib/functions.sh
-        # minimal/server linha 460 /usr/share/manjaro-arm-tools/lib/functions.sh
-        #
-        # 
-        # ${{ inputs.name }}
-        # ${{ inputs.img-name }}
-        
+                
     - name: checkout-arm-profiles
       shell: bash
       env:
@@ -378,12 +298,9 @@ runs:
           
         FILE_PATH=$(find /var/cache/manjaro-arm-tools/img -type f -name "*.img.xz" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
         cp -v $FILE_PATH .
-        # echo "file-path=$(basename $FILE_PATH)" >> $GITHUB_OUTPUT
           
         sha256sum $(basename $FILE_PATH) > $(basename $FILE_PATH).sha256
-        #echo "file-sha256=$(basename $FILE_PATH).sha256" >> $GITHUB_OUTPUT
         mktorrent -v -a udp://tracker.opentrackr.org:1337 -l 21 -w https://github.com/$GITHUB_REPOSITORY/releases/download/$VERSION/$(basename $FILE_PATH) -o $(basename $FILE_PATH).torrent $(basename $FILE_PATH)
-        #echo "file-torrent=$(basename $FILE_PATH).torrent" >> $GITHUB_OUTPUT
           
         # Rename pkgs
         echo "Rename pkgs"
@@ -396,7 +313,6 @@ runs:
         
         FILE_PKG=$(find /var/cache/manjaro-arm-tools/img -type f -name "*.pkgs" -exec stat -c '%Y %n' {} \; | sort -nr | awk 'NR==1 {print $2}')
         cp -v $FILE_PKG .
-        #echo "file-pkg=$(basename $FILE_PKG)" >> $GITHUB_OUTPUT
         
         echo "Split file"
         zip -j -s 1950m $(basename ${FILE_PATH}.zip) $(basename ${FILE_PATH})
@@ -407,6 +323,4 @@ runs:
         echo "FILE_PATH_Z01=$(basename ${FILE_PATH}.z01)" >> $GITHUB_ENV
         echo "FILE_PKG=$(basename $FILE_PATH).pkgs" >> $GITHUB_ENV
         echo "FILE_SHA256=$(basename $FILE_PATH).sha256" >> $GITHUB_ENV
-        echo "FILE_TORRENT=$(basename $FILE_PATH).torrent" >> $GITHUB_ENV
-        #echo "FILE_SIG=$(basename $FILE_PATH).sig" >> $GITHUB_ENV
-        
+        echo "FILE_TORRENT=$(basename $FILE_PATH).torrent" >> $GITHUB_ENV        
