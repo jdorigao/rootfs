@@ -18,6 +18,11 @@ jobs:
   release:
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v4
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+
       - id: time
         uses: boredland/get-time-action@2.0.0
         with:
@@ -135,10 +140,6 @@ jobs:
           sudo sed -i "/pacstrap/s/pacman/pacman $newPackages/2" /usr/bin/buildrootfs
           sudo sed -i "/--populate/s/manjaro-arm/manjaro-arm biglinux biglinux-arm/" /usr/share/manjaro-arm-tools/lib/functions.sh
 
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
-          
       - name: build
         shell: bash
         run: |
@@ -151,6 +152,10 @@ jobs:
 
           echo "FILE_PATH=$(basename $FILE_PATH)" >> $GITHUB_ENV
            
+      - name: Tmate
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+          
       - name: Release assets
         uses: softprops/action-gh-release@v0.1.15
         env:
